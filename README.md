@@ -74,6 +74,7 @@ api_key = "AIza..."
 
 [providers.copilot]
 # No key needed — auto-resolved from `gh auth login` or $GITHUB_TOKEN
+model = "" # optional: leave empty for account-specific auto model selection
 ```
 
 ### 3. Use it
@@ -144,7 +145,7 @@ Installs shell integration. Auto-detects the shell from `$SHELL` if `--shell` is
 | `openai` | `gpt-4o` | Set `providers.openai.api_key` in config |
 | `anthropic` | `claude-3-5-sonnet-20241022` | Set `providers.anthropic.api_key` in config |
 | `gemini` | `gemini-1.5-pro` | Set `providers.gemini.api_key` in config |
-| `copilot` | `gpt-4o` | Auto-resolved from `gh auth login` → `~/.config/github-copilot/hosts.json`, or `$GITHUB_TOKEN` |
+| `copilot` | auto (unset) | Auto-resolved from `gh auth login` → `~/.config/github-copilot/hosts.json`, or `$GITHUB_TOKEN` |
 
 Switch provider per-command:
 
@@ -207,7 +208,7 @@ model   = "gemini-1.5-pro"
 
 [providers.copilot]
 api_key = ""        # leave blank to auto-resolve from gh CLI
-model   = "gpt-4o"
+model   = ""        # leave empty for Copilot auto-selection
 ```
 
 ## Building

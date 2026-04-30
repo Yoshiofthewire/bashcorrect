@@ -43,7 +43,7 @@ func DefaultConfig() Config {
 			"openai": {Model: "gpt-4o"},
 			"anthropic": {Model: "claude-3-5-sonnet-20241022"},
 			"gemini": {Model: "gemini-1.5-pro"},
-			"copilot": {Model: "gpt-4o"},
+			"copilot": {Model: ""},
 		},
 		Autocorrect: AutocorrectConfig{
 			AutoRun:  false,

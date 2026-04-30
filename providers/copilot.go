@@ -14,7 +14,6 @@ import (
 )
 
 const copilotEndpoint = "https://api.githubcopilot.com/chat/completions"
-const copilotDefaultModel = "gpt-4o"
 
 type copilotProvider struct {
 	token string
@@ -22,10 +21,7 @@ type copilotProvider struct {
 }
 
 func newCopilot(pc config.ProviderConfig) Provider {
-	model := pc.Model
-	if model == "" {
-		model = copilotDefaultModel
-	}
+	model := strings.TrimSpace(pc.Model)
 	token := pc.APIKey
 	if token == "" {
 		token = resolveCopilotToken()
@@ -40,11 +36,13 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 		return "", fmt.Errorf("copilot: no token found — set providers.copilot.api_key in config or authenticate via `gh auth login`")
 	}
 	body := map[string]any{
-		"model": p.model,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
 		},
+	}
+	if p.model != "" {
+		body["model"] = p.model
 	}
 
 	extraHeaders := map[string]string{
@@ -59,6 +57,14 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 	res, err := doOpenAICompatRequestWithHeaders(ctx, copilotEndpoint, "Bearer "+p.token, body, extraHeaders, "copilot")
 	if err != nil {
 		msg := err.Error()
+		if p.model != "" && strings.Contains(msg, "model_not_supported") {
+			delete(body, "model")
+			res, retryErr := doOpenAICompatRequestWithHeaders(ctx, copilotEndpoint, "Bearer "+p.token, body, extraHeaders, "copilot")
+			if retryErr == nil {
+				return res, nil
+			}
+			return "", fmt.Errorf("copilot rejected model %q (model_not_supported). Leave providers.copilot.model empty for auto-selection or set a supported model for your account: %w", p.model, retryErr)
+		}
 		if strings.Contains(msg, fmt.Sprintf("API error %d", http.StatusForbidden)) {
 			return "", fmt.Errorf("copilot endpoint forbidden (403): your token is valid but does not have Copilot chat endpoint access. Ensure this account has an active GitHub Copilot seat and try `gh auth refresh -h github.com -s read:org -s gist`; alternatively set providers.copilot.api_key to a Copilot-compatible token")
 		}
