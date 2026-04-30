@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +46,25 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 			{"role": "user", "content": userPrompt},
 		},
 	}
-	return doOpenAICompatRequest(ctx, copilotEndpoint, "Bearer "+p.token, body)
+
+	extraHeaders := map[string]string{
+		"Accept":                  "application/json",
+		"Copilot-Integration-Id":  "vscode-chat",
+		"Editor-Version":          "vscode/1.0.0",
+		"Editor-Plugin-Version":   "bashcorrect/0.1.2",
+		"User-Agent":              "bashcorrect/0.1.2",
+		"X-Request-Source":        "bashcorrect",
+	}
+
+	res, err := doOpenAICompatRequestWithHeaders(ctx, copilotEndpoint, "Bearer "+p.token, body, extraHeaders, "copilot")
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, fmt.Sprintf("API error %d", http.StatusForbidden)) {
+			return "", fmt.Errorf("copilot endpoint forbidden (403): your token is valid but does not have Copilot chat endpoint access. Ensure this account has an active GitHub Copilot seat and try `gh auth refresh -h github.com -s read:org -s gist`; alternatively set providers.copilot.api_key to a Copilot-compatible token")
+		}
+		return "", err
+	}
+	return res, nil
 }
 
 // resolveCopilotToken attempts to find a GitHub Copilot token from the CLI auth

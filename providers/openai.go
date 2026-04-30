@@ -46,6 +46,10 @@ func (p *openAIProvider) Query(ctx context.Context, systemPrompt, userPrompt str
 
 // openAICompatRequest is shared by openai and copilot providers.
 func doOpenAICompatRequest(ctx context.Context, endpoint, authHeader string, body map[string]any) (string, error) {
+	return doOpenAICompatRequestWithHeaders(ctx, endpoint, authHeader, body, nil, "openai")
+}
+
+func doOpenAICompatRequestWithHeaders(ctx context.Context, endpoint, authHeader string, body map[string]any, extraHeaders map[string]string, providerName string) (string, error) {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return "", err
@@ -57,10 +61,13 @@ func doOpenAICompatRequest(ctx context.Context, endpoint, authHeader string, bod
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authHeader)
+	for k, v := range extraHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("openai request: %w", err)
+		return "", fmt.Errorf("%s request: %w", providerName, err)
 	}
 	defer resp.Body.Close()
 
@@ -69,7 +76,7 @@ func doOpenAICompatRequest(ctx context.Context, endpoint, authHeader string, bod
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("openai API error %d: %s", resp.StatusCode, string(raw))
+		return "", fmt.Errorf("%s API error %d: %s", providerName, resp.StatusCode, string(raw))
 	}
 
 	var result struct {
@@ -86,10 +93,10 @@ func doOpenAICompatRequest(ctx context.Context, endpoint, authHeader string, bod
 		return "", err
 	}
 	if result.Error != nil {
-		return "", fmt.Errorf("openai: %s", result.Error.Message)
+		return "", fmt.Errorf("%s: %s", providerName, result.Error.Message)
 	}
 	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("openai: empty response")
+		return "", fmt.Errorf("%s: empty response", providerName)
 	}
 	return result.Choices[0].Message.Content, nil
 }

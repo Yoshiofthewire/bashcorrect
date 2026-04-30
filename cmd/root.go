@@ -13,7 +13,7 @@ var (
 	providerFlag string
 	modelFlag    string
 	cfg          config.Config
-	version      = "0.1.2"
+	version      = "0.1.3"
 )
 
 var rootCmd = &cobra.Command{
