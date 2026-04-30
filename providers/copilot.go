@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
+	"strings"
 
 	"github.com/Yoshiofthewire/bashcorrect/config"
 )
@@ -50,10 +51,28 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 // resolveCopilotToken attempts to find a GitHub Copilot token from the CLI auth
 // store (~/.config/github-copilot/hosts.json) or the GITHUB_TOKEN env var.
 func resolveCopilotToken() string {
-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+	for _, envName := range []string{"GITHUB_TOKEN", "GH_TOKEN", "COPILOT_TOKEN"} {
+		if tok := strings.TrimSpace(os.Getenv(envName)); tok != "" {
+			return tok
+		}
+	}
+
+	for _, hostsFile := range copilotHostsFiles() {
+		if tok := readTokenFromCopilotHostsJSON(hostsFile); tok != "" {
+			return tok
+		}
+	}
+
+	// Fallback to GitHub CLI auth if available and logged in.
+	if tok := readTokenFromGhCLI(); tok != "" {
 		return tok
 	}
-	hostsFile := copilotHostsFile()
+
+	return ""
+}
+
+
+func readTokenFromCopilotHostsJSON(hostsFile string) string {
 	data, err := os.ReadFile(hostsFile)
 	if err != nil {
 		return ""
@@ -67,22 +86,27 @@ func resolveCopilotToken() string {
 		return ""
 	}
 	if h, ok := hosts["github.com"]; ok {
-		return h.OAuthToken
+		return strings.TrimSpace(h.OAuthToken)
 	}
 	return ""
 }
 
-func copilotHostsFile() string {
-	// On Windows the gh CLI stores credentials under %APPDATA%\GitHub CLI
-	if runtime.GOOS == "windows" {
-		appData := os.Getenv("APPDATA")
-		if appData != "" {
-			return filepath.Join(appData, "GitHub CLI", "hosts.yml")
-		}
-	}
-	home, err := os.UserHomeDir()
+func readTokenFromGhCLI() string {
+	cmd := exec.Command("gh", "auth", "token")
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "github-copilot", "hosts.json")
+	return strings.TrimSpace(string(out))
+}
+
+func copilotHostsFiles() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	return []string{
+		filepath.Join(home, ".config", "github-copilot", "hosts.json"),
+		filepath.Join(home, ".config", "GitHub Copilot", "hosts.json"),
+	}
 }
