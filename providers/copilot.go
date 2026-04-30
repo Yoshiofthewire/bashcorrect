@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 )
 
 const copilotEndpoint = "https://api.githubcopilot.com/chat/completions"

@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 )
 
 const anthropicEndpoint = "https://api.anthropic.com/v1/messages"

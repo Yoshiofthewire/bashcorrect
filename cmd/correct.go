@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bashcorrect/bashcorrect/providers"
+	"github.com/Yoshiofthewire/bashcorrect/providers"
 	"github.com/spf13/cobra"
 )
 

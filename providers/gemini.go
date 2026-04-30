@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 )
 
 const geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models"

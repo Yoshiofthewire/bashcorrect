@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/bashcorrect/bashcorrect/shelldata"
+	"github.com/Yoshiofthewire/bashcorrect/shelldata"
 	"github.com/spf13/cobra"
 )
 

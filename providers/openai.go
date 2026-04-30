@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 )
 
 const openAIEndpoint = "https://api.openai.com/v1/chat/completions"

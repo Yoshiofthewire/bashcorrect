@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 	"github.com/spf13/cobra"
 )
 

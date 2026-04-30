@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bashcorrect/bashcorrect/config"
+	"github.com/Yoshiofthewire/bashcorrect/config"
 )
 
 // Provider is the common interface for all AI backends.
