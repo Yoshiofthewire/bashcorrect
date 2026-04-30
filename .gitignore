@@ -1,0 +1,30 @@
+# Binary
+bashcorrect
+bashcorrect.exe
+
+# Cross-compiled distribution binaries
+dist/
+
+# Go build cache
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency vendor directory (if used)
+vendor/
+
+# Editor & OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Config with secrets — never commit real API keys
+# (the generated config at ~/.config/bashcorrect/config.toml lives outside the repo)
+config.toml
