@@ -1,6 +1,6 @@
 BINARY   := bashcorrect
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS  := -ldflags "-X github.com/bashcorrect/bashcorrect/cmd.version=$(VERSION) -s -w"
+LDFLAGS  := -ldflags "-X github.com/Yoshiofthewire/bashcorrect/cmd.version=$(VERSION) -s -w"
 PLATFORMS := \
 	linux/amd64 \
 	linux/arm64 \
