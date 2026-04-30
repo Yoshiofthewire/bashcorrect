@@ -94,8 +94,18 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("reading embedded script: %w", err)
 	}
 
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolving executable path: %w", err)
+	}
+	exePath = filepath.Clean(exePath)
+
+	// Inject the current binary path so shell hooks keep working even when PATH
+	// does not include GOPATH/bin.
+	scriptText := strings.ReplaceAll(string(scriptData), "__BASHCORRECT_BIN__", exePath)
+
 	scriptDest := filepath.Join(shellDir, filepath.Base(def.scriptSrc))
-	if err := os.WriteFile(scriptDest, scriptData, 0o644); err != nil {
+	if err := os.WriteFile(scriptDest, []byte(scriptText), 0o644); err != nil {
 		return fmt.Errorf("writing script: %w", err)
 	}
 

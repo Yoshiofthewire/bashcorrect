@@ -48,6 +48,13 @@ bashcorrect init --shell powershell
 
 This writes the integration script to `~/.config/bashcorrect/shell/` and appends a sourcing line to your rc file. Restart your shell or `source` the rc file.
 
+If `bashcorrect` is not found after install, add your Go bin directory to `PATH`:
+
+```sh
+echo 'export PATH="$(go env GOPATH)/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
 ### 2. Configure a provider
 
 Edit `~/.config/bashcorrect/config.toml` (created automatically on first run):

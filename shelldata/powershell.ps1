@@ -6,6 +6,16 @@
 # or manually append:
 #   . /path/to/powershell.ps1
 
+$__BashCorrectBin = '__BASHCORRECT_BIN__'
+if (-not (Test-Path $__BashCorrectBin)) {
+    $cmd = Get-Command bashcorrect -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $__BashCorrectBin = $cmd.Source
+    } else {
+        return
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Autocorrect hook: wrap the prompt function to check $LASTEXITCODE
 # ---------------------------------------------------------------------------
@@ -16,9 +26,9 @@ function global:Invoke-BashCorrectHook {
     $lastCmd  = (Get-History -Count 1).CommandLine
 
     if ($exitCode -ne 0 -and $exitCode -ne $null -and $lastCmd -and
-        -not $lastCmd.StartsWith('bashcorrect')) {
+        -not $lastCmd.Contains('bashcorrect')) {
 
-        $suggestion = & bashcorrect correct --cmd $lastCmd --exit-code $exitCode 2>$null
+        $suggestion = & $__BashCorrectBin correct --cmd $lastCmd --exit-code $exitCode 2>$null
         if ($suggestion) {
             Invoke-Expression $suggestion
         }
@@ -41,7 +51,7 @@ if (-not $__BashCorrectOriginalPrompt) {
 # ---------------------------------------------------------------------------
 function global:Invoke-BashCorrectQuery {
     param([Parameter(ValueFromRemainingArguments)][string[]]$Prompt)
-    & bashcorrect query @Prompt
+    & $__BashCorrectBin query @Prompt
 }
 
 $__BcAlias = if ($env:BASHCORRECT_ALIAS) { $env:BASHCORRECT_ALIAS } else { 'bc?' }
@@ -57,7 +67,7 @@ if (Get-Module -ListAvailable PSReadLine -ErrorAction SilentlyContinue) {
         [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
 
         if ($line) {
-            $suggestion = & bashcorrect query $line --inline 2>$null
+            $suggestion = & $__BashCorrectBin query $line --inline 2>$null
             if ($suggestion) {
                 [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
                 [Microsoft.PowerShell.PSConsoleReadLine]::Insert($suggestion)

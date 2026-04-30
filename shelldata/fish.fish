@@ -4,6 +4,16 @@
 # or manually append to ~/.config/fish/config.fish:
 #   source /path/to/fish.fish
 
+set -g __bashcorrect_bin "__BASHCORRECT_BIN__"
+if not test -x "$__bashcorrect_bin"
+    if command -sq bashcorrect
+        set -g __bashcorrect_bin (command -s bashcorrect)
+    else
+        functions -e _bashcorrect_postexec _bashcorrect_keybind 2>/dev/null
+        return
+    end
+end
+
 # ---------------------------------------------------------------------------
 # Autocorrect hook: fish_postexec runs after every command
 # ---------------------------------------------------------------------------
@@ -18,11 +28,11 @@ function _bashcorrect_postexec --on-event fish_postexec
         return
     end
     # Avoid recursive correction
-    if string match -q 'bashcorrect*' -- $last_cmd
+    if string match -q '*bashcorrect*' -- $last_cmd
         return
     end
 
-    set -l suggestion (bashcorrect correct --cmd $last_cmd --exit-code $last_exit 2>/dev/tty)
+    set -l suggestion ($__bashcorrect_bin correct --cmd $last_cmd --exit-code $last_exit 2>/dev/tty)
     if test -n "$suggestion"
         eval $suggestion
     end
@@ -31,7 +41,7 @@ end
 # ---------------------------------------------------------------------------
 # Direct query abbreviation: `? how do I list files`
 # ---------------------------------------------------------------------------
-abbr --add '?' 'bashcorrect query'
+abbr --add '?' "$__bashcorrect_bin query"
 
 # ---------------------------------------------------------------------------
 # Alt+Enter keybinding: replace commandline buffer with AI suggestion
@@ -41,7 +51,7 @@ function _bashcorrect_keybind
     if test -z "$current_cmd"
         return
     end
-    set -l suggestion (bashcorrect query $current_cmd --inline 2>/dev/null)
+    set -l suggestion ($__bashcorrect_bin query $current_cmd --inline 2>/dev/null)
     if test -n "$suggestion"
         commandline --replace -- $suggestion
     end

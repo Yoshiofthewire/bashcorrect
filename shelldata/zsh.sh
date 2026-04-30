@@ -4,6 +4,14 @@
 #   source <path/to/zsh.sh>
 # or let `bashcorrect init --shell zsh` append the sourcing line automatically.
 
+_BASHCORRECT_BIN="__BASHCORRECT_BIN__"
+if [[ ! -x "$_BASHCORRECT_BIN" ]]; then
+    _BASHCORRECT_BIN="$(command -v bashcorrect 2>/dev/null || true)"
+fi
+if [[ -z "$_BASHCORRECT_BIN" ]]; then
+    return
+fi
+
 autoload -Uz add-zsh-hook
 
 # ---------------------------------------------------------------------------
@@ -18,11 +26,11 @@ _bashcorrect_precmd() {
     if [[ -z "$_bc_last_cmd" ]]; then
         return
     fi
-    if [[ "$_bc_last_cmd" == bashcorrect* ]]; then
+    if [[ "$_bc_last_cmd" == *bashcorrect* ]]; then
         return
     fi
     local _bc_suggestion
-    _bc_suggestion=$(bashcorrect correct --cmd "$_bc_last_cmd" --exit-code "$_bc_exit" 2>/dev/tty)
+    _bc_suggestion=$("$_BASHCORRECT_BIN" correct --cmd "$_bc_last_cmd" --exit-code "$_bc_exit" 2>/dev/tty)
     if [[ -n "$_bc_suggestion" ]]; then
         eval "$_bc_suggestion"
     fi
@@ -33,14 +41,16 @@ add-zsh-hook precmd _bashcorrect_precmd
 # ---------------------------------------------------------------------------
 # Direct query alias
 # ---------------------------------------------------------------------------
-alias '?'='bashcorrect query'
+'?'() {
+    "$_BASHCORRECT_BIN" query "$*"
+}
 
 # ---------------------------------------------------------------------------
 # Alt+Enter zle widget: replace the current buffer with an AI suggestion
 # ---------------------------------------------------------------------------
 _bashcorrect_widget() {
     local _bc_result
-    _bc_result=$(bashcorrect query "$BUFFER" --inline 2>/dev/null)
+    _bc_result=$("$_BASHCORRECT_BIN" query "$BUFFER" --inline 2>/dev/null)
     if [[ -n "$_bc_result" ]]; then
         BUFFER="$_bc_result"
         CURSOR=${#BUFFER}
