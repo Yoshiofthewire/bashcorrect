@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Yoshiofthewire/bashcorrect/config"
@@ -33,7 +35,10 @@ func (p *copilotProvider) Name() string { return "copilot" }
 
 func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	if p.token == "" {
-		return "", fmt.Errorf("copilot: no token found — set providers.copilot.api_key in config or authenticate via `gh auth login`")
+		if res, err := queryViaGhCopilotCLI(ctx, systemPrompt, userPrompt); err == nil {
+			return res, nil
+		}
+		return "", fmt.Errorf("copilot: no token found — set providers.copilot.api_key in config, authenticate via `gh auth login`, or install GitHub Copilot CLI via `gh copilot`")
 	}
 	body := map[string]any{
 		"messages": []map[string]string{
@@ -66,11 +71,62 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 			return "", fmt.Errorf("copilot rejected model %q (model_not_supported). Leave providers.copilot.model empty for auto-selection or set a supported model for your account: %w", p.model, retryErr)
 		}
 		if strings.Contains(msg, fmt.Sprintf("API error %d", http.StatusForbidden)) {
-			return "", fmt.Errorf("copilot endpoint forbidden (403): your token is valid but does not have Copilot chat endpoint access. Ensure this account has an active GitHub Copilot seat and try `gh auth refresh -h github.com -s read:org -s gist`; alternatively set providers.copilot.api_key to a Copilot-compatible token")
+			if cliRes, cliErr := queryViaGhCopilotCLI(ctx, systemPrompt, userPrompt); cliErr == nil {
+				return cliRes, nil
+			}
+			return "", fmt.Errorf("copilot endpoint forbidden (403): your token is valid but does not have Copilot chat endpoint access. Ensure this account has an active GitHub Copilot seat and try `gh auth refresh -h github.com -s read:org -s gist`; alternatively install/use `gh copilot` locally or set providers.copilot.api_key to a Copilot-compatible token")
 		}
 		return "", err
 	}
 	return res, nil
+}
+
+func queryViaGhCopilotCLI(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	prompt := buildGhCopilotPrompt(systemPrompt, userPrompt)
+	cmd := exec.CommandContext(ctx, "gh", "copilot", "-p", prompt)
+	cmd.Env = append(os.Environ(),
+		"GH_PROMPT_DISABLED=1",
+		"NO_COLOR=1",
+		"CLICOLOR=0",
+		"CLICOLOR_FORCE=0",
+	)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("gh copilot CLI failed: %s", msg)
+	}
+
+	response := cleanGhCopilotOutput(stdout.String())
+	if response == "" {
+		response = cleanGhCopilotOutput(stderr.String())
+	}
+	if response == "" {
+		return "", fmt.Errorf("gh copilot CLI returned no output")
+	}
+	return response, nil
+}
+
+func buildGhCopilotPrompt(systemPrompt, userPrompt string) string {
+	if systemPrompt == "" {
+		return userPrompt
+	}
+	return strings.TrimSpace(systemPrompt) + "\n\nUser request:\n" + strings.TrimSpace(userPrompt)
+}
+
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
+func cleanGhCopilotOutput(s string) string {
+	s = ansiEscapeRe.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "\r", "")
+	return strings.TrimSpace(s)
 }
 
 // resolveCopilotToken attempts to find a GitHub Copilot token from the CLI auth

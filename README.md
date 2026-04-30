@@ -145,13 +145,15 @@ Installs shell integration. Auto-detects the shell from `$SHELL` if `--shell` is
 | `openai` | `gpt-4o` | Set `providers.openai.api_key` in config |
 | `anthropic` | `claude-3-5-sonnet-20241022` | Set `providers.anthropic.api_key` in config |
 | `gemini` | `gemini-1.5-pro` | Set `providers.gemini.api_key` in config |
-| `copilot` | auto (unset) | Auto-resolved from `gh auth login` → `~/.config/github-copilot/hosts.json`, or `$GITHUB_TOKEN` |
+| `copilot` | auto (unset) | Auto-resolved from `gh auth login` → `~/.config/github-copilot/hosts.json`, `$GITHUB_TOKEN`, or local `gh copilot` CLI fallback |
 
 Switch provider per-command:
 
 ```sh
 bashcorrect query "explain this error" --provider anthropic
 ```
+
+If GitHub's Copilot chat endpoint is unavailable for your token, BashCorrect will also try the local `gh copilot` CLI in non-interactive mode and capture its output.
 
 ## Shell Integration Details
 
