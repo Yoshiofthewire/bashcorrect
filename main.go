@@ -1,6 +1,6 @@
 package main
 
-import "github.com/bashcorrect/bashcorrect/cmd"
+import "github.com/Yoshiofthewire/bashcorrect/cmd"
 
 func main() {
 	cmd.Execute()
