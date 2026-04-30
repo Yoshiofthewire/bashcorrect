@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/Yoshiofthewire/bashcorrect/config"
 	"github.com/Yoshiofthewire/bashcorrect/shelldata"
 	"github.com/spf13/cobra"
 )
@@ -66,6 +67,10 @@ var shells = map[string]shellDef{
 }
 
 func runInit(_ *cobra.Command, _ []string) error {
+	if _, err := config.Load(cfgFile); err != nil {
+		return fmt.Errorf("ensuring config exists: %w", err)
+	}
+
 	shell := initShellFlag
 	if shell == "" {
 		shell = detectShell()

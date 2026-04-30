@@ -87,6 +87,9 @@ func Load(override string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if err := Save(cfg); err != nil {
+				return Config{}, fmt.Errorf("creating default config %s: %w", path, err)
+			}
 			return cfg, nil
 		}
 		return Config{}, fmt.Errorf("reading config %s: %w", path, err)
