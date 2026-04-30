@@ -13,6 +13,7 @@ var (
 	providerFlag string
 	modelFlag    string
 	cfg          config.Config
+	version      = "0.1.1"
 )
 
 var rootCmd = &cobra.Command{
@@ -23,7 +24,7 @@ commands and lets you ask your AI assistant anything directly from the terminal.
 
 Supported providers: openai, anthropic, gemini, copilot
 Supported shells:    bash, zsh, fish, powershell`,
-	Version: "0.1.0",
+	Version: version,
 }
 
 // Execute is the entry point called from main.
