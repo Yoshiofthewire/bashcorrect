@@ -1,4 +1,4 @@
-module github.com/bashcorrect/bashcorrect
+module github.com/Yoshiofthewire/bashcorrect
 
 go 1.22
 
