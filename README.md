@@ -16,13 +16,13 @@ AI-powered shell autocorrect and assistant. Hooks into your shell to fix failed 
 **Requirements:** Go 1.22+
 
 ```sh
-go install github.com/bashcorrect/bashcorrect@latest
+go install github.com/Yoshiofthewire/bashcorrect@latest
 ```
 
 Or build from source:
 
 ```sh
-git clone https://github.com/bashcorrect/bashcorrect
+git clone https://github.com/Yoshiofthewire/bashcorrect
 cd bashcorrect
 make install
 ```
