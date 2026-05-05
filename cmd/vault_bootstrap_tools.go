@@ -15,12 +15,14 @@ import (
 type vaultToolEntry struct {
 	Name        string
 	Description string
-	Command     string
+	Command     string // sh command (Unix/macOS)
+	PSCommand   string // PowerShell command (Windows)
 }
 
 var (
 	vaultToolDescription string
 	vaultToolCommand     string
+	vaultToolPSCommand   string
 )
 
 var vaultToolsCmd = &cobra.Command{
@@ -63,7 +65,8 @@ Example:
 
 func init() {
 	vaultToolsAddCmd.Flags().StringVar(&vaultToolDescription, "description", "", "tool description")
-	vaultToolsAddCmd.Flags().StringVar(&vaultToolCommand, "cmd", "", "shell command to run (required)")
+	vaultToolsAddCmd.Flags().StringVar(&vaultToolCommand, "cmd", "", "shell command to run (Unix/macOS, required)")
+	vaultToolsAddCmd.Flags().StringVar(&vaultToolPSCommand, "ps-cmd", "", "PowerShell command to run (Windows, optional)")
 	_ = vaultToolsAddCmd.MarkFlagRequired("cmd")
 
 	vaultToolsCmd.AddCommand(vaultToolsListCmd)
@@ -528,6 +531,11 @@ func runVaultToolsAdd(_ *cobra.Command, args []string) error {
 	}
 	block += "```sh\n" + cmdText + "\n```\n"
 
+	psCmd := strings.TrimSpace(vaultToolPSCommand)
+	if psCmd != "" {
+		block += "```ps1\n" + psCmd + "\n```\n"
+	}
+
 	if _, err := f.WriteString(block); err != nil {
 		return fmt.Errorf("writing TOOLS.md: %w", err)
 	}
@@ -560,7 +568,7 @@ func runVaultToolsRun(_ *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Running tool %q\n", selected.Name)
-	return executeToolCommand(vaultPath, selected.Command)
+	return executeToolCommand(vaultPath, *selected)
 }
 
 func loadVaultTools(vaultPath string) ([]vaultToolEntry, error) {
@@ -581,6 +589,7 @@ func parseVaultToolsMarkdown(content string) []vaultToolEntry {
 
 	var current *vaultToolEntry
 	inCode := false
+	isPSBlock := false
 	codeFence := ""
 	var cmdLines []string
 
@@ -588,21 +597,31 @@ func parseVaultToolsMarkdown(content string) []vaultToolEntry {
 		if current == nil {
 			return
 		}
-		current.Command = strings.TrimSpace(strings.Join(cmdLines, "\n"))
-		if current.Name != "" && current.Command != "" {
+		collected := strings.TrimSpace(strings.Join(cmdLines, "\n"))
+		if isPSBlock {
+			current.PSCommand = collected
+		} else {
+			current.Command = collected
+		}
+		cmdLines = nil
+		inCode = false
+		isPSBlock = false
+		codeFence = ""
+	}
+
+	finishEntry := func() {
+		flush()
+		if current != nil && current.Name != "" && (current.Command != "" || current.PSCommand != "") {
 			entries = append(entries, *current)
 		}
 		current = nil
-		cmdLines = nil
-		inCode = false
-		codeFence = ""
 	}
 
 	for _, line := range lines {
 		trim := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trim, "### ") {
-			flush()
+			finishEntry()
 			current = &vaultToolEntry{Name: strings.TrimSpace(strings.TrimPrefix(trim, "### "))}
 			continue
 		}
@@ -614,10 +633,12 @@ func parseVaultToolsMarkdown(content string) []vaultToolEntry {
 			if !inCode {
 				inCode = true
 				codeFence = trim
+				lang := strings.ToLower(strings.TrimPrefix(trim, "```"))
+				isPSBlock = lang == "ps1" || lang == "powershell"
 				continue
 			}
 			if trim == "```" || trim == codeFence || strings.HasPrefix(trim, "```") {
-				inCode = false
+				flush()
 				continue
 			}
 		}
@@ -631,16 +652,27 @@ func parseVaultToolsMarkdown(content string) []vaultToolEntry {
 			current.Description = trim
 		}
 	}
-	flush()
+	finishEntry()
 
 	return entries
 }
 
-func executeToolCommand(vaultPath, command string) error {
+func executeToolCommand(vaultPath string, tool vaultToolEntry) error {
 	var c *exec.Cmd
 	if runtime.GOOS == "windows" {
+		command := tool.PSCommand
+		if command == "" {
+			command = tool.Command
+		}
+		if command == "" {
+			return fmt.Errorf("tool %q has no command defined", tool.Name)
+		}
 		c = exec.Command("powershell", "-NoProfile", "-Command", command)
 	} else {
+		command := tool.Command
+		if command == "" {
+			return fmt.Errorf("tool %q has no sh command defined (use --ps-cmd for Windows-only tools)", tool.Name)
+		}
 		c = exec.Command("sh", "-lc", command)
 	}
 	c.Dir = vaultPath
@@ -709,12 +741,16 @@ Be the assistant you'd actually want to talk to at 2am. Not a corporate drone. N
 func vaultToolsTemplate() string {
 	return "# TOOLS\n\n" +
 		"Tools are executable snippets for this vault.\n" +
-		"Each tool must be declared as a level-3 heading followed by a shell fenced block.\n\n" +
+		"Each tool must be declared as a level-3 heading followed by one or more fenced code blocks.\n" +
+		"Use a `sh` block for Unix/macOS and a `ps1` block for Windows — both are optional but at least one is required.\n\n" +
 		"Example:\n\n" +
 		"### list-recent-files\n" +
 		"Lists files changed in the last day.\n\n" +
 		"```sh\n" +
 		"find . -type f -mtime -1 | sort\n" +
+		"```\n" +
+		"```ps1\n" +
+		"Get-ChildItem -Recurse -File | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-1) } | Sort-Object FullName | Select-Object -ExpandProperty FullName\n" +
 		"```\n\n" +
 		"### verify-memory-files\n" +
 		"Verify that the core memory files were generated and are non-empty.\n\n" +
@@ -724,6 +760,13 @@ func vaultToolsTemplate() string {
 		"  test -s \"$f\"\n" +
 		"done\n" +
 		"printf 'core memory files OK\\n'\n" +
+		"```\n" +
+		"```ps1\n" +
+		"$files = 'AGENTS.md','IDENTITY.md','MEMORY.md','SOUL.md','TOOLS.md','USER.md','WIKI.md','index.md'\n" +
+		"foreach ($f in $files) {\n" +
+		"  if (-not (Test-Path $f) -or (Get-Item $f).Length -eq 0) { throw \"Missing or empty: $f\" }\n" +
+		"}\n" +
+		"Write-Host 'core memory files OK'\n" +
 		"```\n\n" +
 		"### verify-vault-layout\n" +
 		"Verify that the expected vault directories exist.\n\n" +
@@ -733,11 +776,21 @@ func vaultToolsTemplate() string {
 		"  test -d \"$d\"\n" +
 		"done\n" +
 		"printf 'vault layout OK\\n'\n" +
+		"```\n" +
+		"```ps1\n" +
+		"$dirs = 'entities','concepts','syntheses','sources','reports','_attachments','_views','.bashcorrect-vault/cache'\n" +
+		"foreach ($d in $dirs) {\n" +
+		"  if (-not (Test-Path $d -PathType Container)) { throw \"Missing directory: $d\" }\n" +
+		"}\n" +
+		"Write-Host 'vault layout OK'\n" +
 		"```\n\n" +
 		"### summarize-file\n" +
 		"Send a file to the active LLM and request a concise summary.\n\n" +
 		"```sh\n" +
 		"bashcorrect query --summarize-files --file ./README.md\n" +
+		"```\n" +
+		"```ps1\n" +
+		"bashcorrect query --summarize-files --file .\\README.md\n" +
 		"```\n"
 }
 

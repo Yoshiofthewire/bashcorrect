@@ -1,11 +1,15 @@
 # TOOLS
 
 Tools are executable snippets for this vault.
-Define each tool as a level-3 heading and one `sh` code block.
+Define each tool as a level-3 heading and one or more fenced code blocks.
+Use a `sh` block for Unix/macOS and a `ps1` block for Windows — both are optional but at least one is required.
 
 ### vault-status
 Show current vault status.
 ```sh
+bashcorrect vault status
+```
+```ps1
 bashcorrect vault status
 ```
 
@@ -14,9 +18,15 @@ List entity pages in this vault.
 ```sh
 ls -1 entities/*.md 2>/dev/null || true
 ```
+```ps1
+Get-ChildItem -Path entities -Filter '*.md' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+```
 
 ### find-copilot-notes
 Search notes that mention copilot.
 ```sh
 grep -Rin "copilot" .
+```
+```ps1
+Get-ChildItem -Recurse -File | Select-String -Pattern 'copilot' -CaseSensitive:$false | Select-Object Path, LineNumber, Line
 ```
