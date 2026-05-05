@@ -7,6 +7,7 @@ AI-powered shell autocorrect and assistant. Hooks into your shell to fix failed 
 - **Autocorrect** — when a command fails, BashCorrect asks your AI provider for the fix, shows a colored diff, and prompts `[y/N/edit]`
 - **Direct queries** — prefix any natural-language request with `?` to get an AI answer in your terminal
 - **Inline buffer replacement** — press **Alt+Enter** on any command to replace it with an AI suggestion before running
+- **Memory vault** — create a deterministic local knowledge vault with structured pages and searchable markdown
 - **Multi-provider** — switch between OpenAI, Anthropic, Gemini, and GitHub Copilot in one flag
 - **Multi-shell** — bash, zsh, fish, and PowerShell 7+ (Linux, macOS, Windows)
 - **Single binary** — no runtime dependencies; shell integration scripts are embedded and written on `init`
@@ -88,6 +89,12 @@ gti status
 # Direct query
 ? how do I recursively find files modified in the last 24 hours
 
+# Summarize files via AI
+? --summarize-files --file README.md
+
+# Ask about specific files
+? "find risks and suggest fixes" --file cmd/query.go --file cmd/vault_bootstrap_tools.go
+
 # Alt+Enter — with cursor on any command in the buffer, press Alt+Enter
 # to replace it with an AI suggestion before running
 ```
@@ -121,14 +128,55 @@ Send a natural-language prompt to the active AI provider.
 | `--inline` | Output only the extracted command (used by keybindings) |
 | `--cwd` | Include current working directory as context |
 | `--history-lines N` | Include last N lines of shell history as context |
+| `--file <path>` | Include file content in prompt context (repeatable) |
+| `--summarize-files` | Summarize the provided `--file` inputs (prompt optional) |
+| `--vault-path <path>` | Override vault path used for memory context |
+
+Examples:
+
+```sh
+bashcorrect query "review for bugs" --file cmd/query.go --file README.md
+bashcorrect query --summarize-files --file README.md
+```
 
 ### `bashcorrect init`
 
 ```
 bashcorrect init [--shell bash|zsh|fish|powershell]
+bashcorrect init bootstrap [--path <vault-path>] [--force]
 ```
 
 Installs shell integration. Auto-detects the shell from `$SHELL` if `--shell` is omitted.
+Use `init bootstrap` to initialize only the AI memory vault (no shell hook installation).
+
+### `bashcorrect vault`
+
+```sh
+bashcorrect vault init
+bashcorrect vault bootstrap
+bashcorrect vault status
+bashcorrect vault weather-location "Austin, TX"
+bashcorrect vault new --type entity --title "GitHub Copilot CLI"
+bashcorrect vault search "copilot"
+bashcorrect vault get entity.github-copilot-cli
+bashcorrect vault tools add hello --cmd "echo hi"
+bashcorrect vault tools list
+bashcorrect vault tools run hello
+```
+
+Manage a local memory vault inspired by wiki-style memory systems. The vault is
+stored by default at `~/.config/bashcorrect/vault` and includes deterministic
+sections for `entities`, `concepts`, `syntheses`, `sources`, and `reports`.
+
+On `vault init`, BashCorrect now automatically runs bootstrap setup by default:
+- seeds `IDENTITY.md`, `USER.md`, and `MEMORY.md`
+- keeps writable memory defaults in place
+- creates `TOOLS.md` as a runnable tool registry
+- removes `BOOTSTRAP.md` after bootstrap completes
+
+Use `bashcorrect vault init --no-bootstrap` to skip this automation.
+Use `bashcorrect vault bootstrap` to rerun bootstrap on an existing vault.
+Use `bashcorrect vault weather-location "<location>"` to update location memory later without rerunning bootstrap.
 
 ### Global flags
 
@@ -160,7 +208,7 @@ If GitHub's Copilot chat endpoint is unavailable for your token, BashCorrect wil
 ### bash
 
 - Autocorrect hook via `PROMPT_COMMAND`
-- `?` shell function alias: `? what does chmod 755 mean`
+- `?` alias: `? what does chmod 755 mean`
 - Alt+Enter via `bind -x '"\e\n":...'`
 
 ### zsh

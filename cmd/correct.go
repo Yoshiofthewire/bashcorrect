@@ -25,6 +25,7 @@ var (
 	correctCmdFlag      string
 	correctExitCodeFlag int
 	correctStderrFlag   string
+	stdinReader         = bufio.NewReader(os.Stdin)
 )
 
 func init() {
@@ -98,9 +99,12 @@ func printDiff(original, corrected string) {
 
 func promptUser(prompt string) string {
 	fmt.Fprint(os.Stderr, prompt)
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		return scanner.Text()
+	line, err := stdinReader.ReadString('\n')
+	if err == nil {
+		return strings.TrimRight(line, "\r\n")
+	}
+	if line != "" {
+		return strings.TrimRight(line, "\r\n")
 	}
 	return ""
 }

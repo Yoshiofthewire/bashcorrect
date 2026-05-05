@@ -3,6 +3,8 @@
 BashCorrect is a Go CLI tool that integrates into your shell to:
 1. **Autocorrect failed commands** — when a command exits non-zero, it asks an AI for the corrected version, shows a before/after diff, and prompts you to run, skip, or edit the fix.
 2. **Answer direct AI queries** — type `? how do I list files modified in the last 24 hours` or press **Alt+Enter** on any command to get an AI suggestion in-place.
+	- You can pass file context with `--file` and summarize files with `--summarize-files`.
+3. **Maintain a memory vault** — initialize a deterministic local wiki-like knowledge vault with structured pages, bootstrap seeding, and TOOLS.md execution support.
 
 ## Inspiration
 
@@ -13,7 +15,7 @@ BashCorrect is a Go CLI tool that integrates into your shell to:
 
 | Shell | Autocorrect hook | Query alias | Alt+Enter keybinding |
 |---|---|---|---|
-| bash | `PROMPT_COMMAND` | `?` function | `bind -x` |
+| bash | `PROMPT_COMMAND` | `?` alias | `bind -x` |
 | zsh | `add-zsh-hook precmd` | `alias ?` | `zle` widget |
 | fish | `fish_postexec` event | `abbr ?` | `bind \e\n` |
 | PowerShell 7+ | `prompt` wrapper | `bc?` alias | `Set-PSReadLineKeyHandler` |
@@ -41,7 +43,9 @@ bashcorrect/
 │   ├── root.go        # Cobra root, global flags (--provider, --model, --config)
 │   ├── correct.go     # `bashcorrect correct` — autocorrect a failed command
 │   ├── query.go       # `bashcorrect query`   — direct AI query
-│   └── init.go        # `bashcorrect init`    — shell integration installer
+│   ├── init.go        # `bashcorrect init`    — shell integration installer
+│   ├── vault.go       # `bashcorrect vault`   — local memory vault management
+│   └── vault_bootstrap_tools.go # bootstrap + TOOLS.md add/list/run
 ├── providers/
 │   ├── provider.go    # Provider interface + factory
 │   ├── openai.go      # OpenAI
@@ -67,3 +71,8 @@ bashcorrect/
 - All provider calls use stdlib `net/http` — no vendor SDKs, minimal attack surface.
 - PowerShell's built-in `?` alias (for `Where-Object`) is preserved; BashCorrect uses `bc?` by default (overridable via `$env:BASHCORRECT_ALIAS`).
 - `bashcorrect correct` prints the accepted command to stdout; the shell hook `eval`s it, so the corrected command appears in shell history naturally. 
+- `bashcorrect vault init` runs bootstrap by default: seeds IDENTITY/USER/MEMORY, allows writable memory by default, and deletes BOOTSTRAP.md when done.
+- `bashcorrect vault tools` can add/list/run named tools from TOOLS.md.
+- `bashcorrect init bootstrap` initializes only the AI memory vault (without installing shell hooks).
+- `bashcorrect vault weather-location "<location>"` updates weather location memory in USER.md and MEMORY.md.
+- `bashcorrect query --summarize-files --file <path>` sends file contents to the LLM and requests a summary.

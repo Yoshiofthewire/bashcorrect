@@ -1,0 +1,22 @@
+# TOOLS
+
+Tools are executable snippets for this vault.
+Define each tool as a level-3 heading and one `sh` code block.
+
+### vault-status
+Show current vault status.
+```sh
+bashcorrect vault status
+```
+
+### list-entities
+List entity pages in this vault.
+```sh
+ls -1 entities/*.md 2>/dev/null || true
+```
+
+### find-copilot-notes
+Search notes that mention copilot.
+```sh
+grep -Rin "copilot" .
+```

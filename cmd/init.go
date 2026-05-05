@@ -22,16 +22,38 @@ Supported shells: bash, zsh, fish, powershell`,
 	RunE: runInit,
 }
 
-var initShellFlag string
+var (
+	initShellFlag         string
+	initBootstrapPathFlag string
+	initBootstrapForce    bool
+)
+
+var initBootstrapCmd = &cobra.Command{
+	Use:   "bootstrap",
+	Short: "Initialize the AI memory vault without installing shell hooks",
+	Long:  "Creates the local vault layout and runs bootstrap so the assistant has memory files, soul, and tools available.",
+	RunE:  runInitBootstrap,
+}
 
 func init() {
 	initCmd.Flags().StringVar(&initShellFlag, "shell", "", "shell to configure: bash, zsh, fish, powershell (auto-detected if omitted)")
+	initBootstrapCmd.Flags().StringVar(&initBootstrapPathFlag, "path", "", "vault path (default: $XDG_CONFIG_HOME/bashcorrect/vault)")
+	initBootstrapCmd.Flags().BoolVar(&initBootstrapForce, "force", false, "overwrite top-level template files")
+	initCmd.AddCommand(initBootstrapCmd)
 	rootCmd.AddCommand(initCmd)
 }
 
+func runInitBootstrap(_ *cobra.Command, _ []string) error {
+	vaultPath, err := resolveVaultPath(initBootstrapPathFlag)
+	if err != nil {
+		return err
+	}
+	return initVaultAtPath(vaultPath, initBootstrapForce, true)
+}
+
 type shellDef struct {
-	scriptSrc string // path inside embed.FS
-	rcFile    func() string
+	scriptSrc  string // path inside embed.FS
+	rcFile     func() string
 	sourceLine func(scriptPath string) string
 }
 

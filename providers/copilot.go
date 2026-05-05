@@ -51,12 +51,12 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 	}
 
 	extraHeaders := map[string]string{
-		"Accept":                  "application/json",
-		"Copilot-Integration-Id":  "vscode-chat",
-		"Editor-Version":          "vscode/1.0.0",
-		"Editor-Plugin-Version":   "bashcorrect/0.1.2",
-		"User-Agent":              "bashcorrect/0.1.2",
-		"X-Request-Source":        "bashcorrect",
+		"Accept":                 "application/json",
+		"Copilot-Integration-Id": "vscode-chat",
+		"Editor-Version":         "vscode/1.0.0",
+		"Editor-Plugin-Version":  "bashcorrect/0.1.2",
+		"User-Agent":             "bashcorrect/0.1.2",
+		"X-Request-Source":       "bashcorrect",
 	}
 
 	res, err := doOpenAICompatRequestWithHeaders(ctx, copilotEndpoint, "Bearer "+p.token, body, extraHeaders, "copilot")
@@ -83,7 +83,12 @@ func (p *copilotProvider) Query(ctx context.Context, systemPrompt, userPrompt st
 
 func queryViaGhCopilotCLI(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	prompt := buildGhCopilotPrompt(systemPrompt, userPrompt)
-	cmd := exec.CommandContext(ctx, "gh", "copilot", "-p", prompt)
+	cli, err := findCopilotCLI()
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.CommandContext(ctx, cli, "-p", prompt)
 	cmd.Env = append(os.Environ(),
 		"GH_PROMPT_DISABLED=1",
 		"NO_COLOR=1",
@@ -101,7 +106,7 @@ func queryViaGhCopilotCLI(ctx context.Context, systemPrompt, userPrompt string) 
 		if msg == "" {
 			msg = err.Error()
 		}
-		return "", fmt.Errorf("gh copilot CLI failed: %s", msg)
+		return "", fmt.Errorf("copilot CLI failed: %s", msg)
 	}
 
 	response := cleanGhCopilotOutput(stdout.String())
@@ -109,9 +114,30 @@ func queryViaGhCopilotCLI(ctx context.Context, systemPrompt, userPrompt string) 
 		response = cleanGhCopilotOutput(stderr.String())
 	}
 	if response == "" {
-		return "", fmt.Errorf("gh copilot CLI returned no output")
+		return "", fmt.Errorf("copilot CLI returned no output")
 	}
 	return response, nil
+}
+
+func findCopilotCLI() (string, error) {
+	if p, err := exec.LookPath("copilot"); err == nil {
+		return p, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err == nil {
+		candidates := []string{
+			filepath.Join(home, ".local", "share", "gh", "copilot", "copilot"),
+			filepath.Join(home, ".config", "gh", "copilot", "copilot"),
+		}
+		for _, c := range candidates {
+			if fi, statErr := os.Stat(c); statErr == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 {
+				return c, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("copilot CLI not installed; install it first with `gh copilot`, then retry")
 }
 
 func buildGhCopilotPrompt(systemPrompt, userPrompt string) string {
@@ -151,7 +177,6 @@ func resolveCopilotToken() string {
 
 	return ""
 }
-
 
 func readTokenFromCopilotHostsJSON(hostsFile string) string {
 	data, err := os.ReadFile(hostsFile)

@@ -48,9 +48,7 @@ fi
 # ---------------------------------------------------------------------------
 # Direct query alias: `? how do I list files recursively`
 # ---------------------------------------------------------------------------
-'?'() {
-    "$_BASHCORRECT_BIN" query "$*"
-}
+alias '?'="$_BASHCORRECT_BIN query"
 
 # ---------------------------------------------------------------------------
 # Alt+Enter keybinding: replace current readline buffer with AI suggestion

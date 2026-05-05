@@ -42,7 +42,7 @@ add-zsh-hook precmd _bashcorrect_precmd
 # Direct query alias
 # ---------------------------------------------------------------------------
 '?'() {
-    "$_BASHCORRECT_BIN" query "$*"
+    "$_BASHCORRECT_BIN" query "$@"
 }
 
 # ---------------------------------------------------------------------------
