@@ -63,9 +63,11 @@ func validateQueryArgs(_ *cobra.Command, args []string) error {
 	return fmt.Errorf("requires a prompt, or use --summarize-files with at least one --file")
 }
 
-const querySystemPrompt = `You are an expert terminal assistant. Answer shell questions concisely.
-If your answer includes a command, wrap it in a fenced code block using triple backticks.
-Prefer POSIX-compatible commands unless the user specifies a shell.`
+const querySystemPrompt = `You are an expert terminal assistant.
+By default, return only the final result in concise plain language.
+Do not include internal reasoning, step-by-step thought process, or hidden analysis.
+Do not include shell commands unless the user explicitly asks for commands or asks for verbose output.
+When commands are explicitly requested, prefer POSIX-compatible commands unless the user specifies a shell.`
 
 const queryInlineSystemPrompt = `You are an expert terminal assistant. The user wants a single shell command.
 Output ONLY the raw command — no explanation, no markdown, no code fences.`
@@ -151,6 +153,10 @@ func buildQueryPrompts(prompt string, includeCWD bool, historyLines int, inline 
 
 func buildQueryPrompt(prompt string, includeCWD bool, historyLines int, files []string) string {
 	var sb strings.Builder
+
+	if osRelease := buildOSReleasePromptContext(); osRelease != "" {
+		sb.WriteString(osRelease)
+	}
 
 	if includeCWD {
 		cwd, err := os.Getwd()

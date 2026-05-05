@@ -28,7 +28,7 @@ function global:Invoke-BashCorrectHook {
     if ($exitCode -ne 0 -and $exitCode -ne $null -and $lastCmd -and
         -not $lastCmd.Contains('bashcorrect')) {
 
-        $suggestion = & $__BashCorrectBin correct --cmd $lastCmd --exit-code $exitCode 2>$null
+        $suggestion = & $__BashCorrectBin correct --cmd $lastCmd --exit-code $exitCode --shell powershell 2>$null
         if ($suggestion) {
             Invoke-Expression $suggestion
         }
@@ -46,16 +46,27 @@ if (-not $__BashCorrectOriginalPrompt) {
 
 # ---------------------------------------------------------------------------
 # Direct query function and alias
-# NOTE: '?' is a built-in alias for Where-Object; we use 'bc?' instead.
-#       Users can override by setting $env:BASHCORRECT_ALIAS before sourcing.
+# By default we define a global '?' function so usage matches bash/zsh/fish.
+# This is more reliable than alias replacement of the built-in Where-Object.
+# Users can override via $env:BASHCORRECT_ALIAS before sourcing.
 # ---------------------------------------------------------------------------
 function global:Invoke-BashCorrectQuery {
     param([Parameter(ValueFromRemainingArguments)][string[]]$Prompt)
     & $__BashCorrectBin query @Prompt
 }
 
-$__BcAlias = if ($env:BASHCORRECT_ALIAS) { $env:BASHCORRECT_ALIAS } else { 'bc?' }
-Set-Alias -Name $__BcAlias -Value Invoke-BashCorrectQuery -Scope Global -Force
+if ($env:BASHCORRECT_ALIAS) {
+    Set-Alias -Name $env:BASHCORRECT_ALIAS -Value Invoke-BashCorrectQuery -Scope Global -Force
+} else {
+    Remove-Item alias:? -Force -ErrorAction SilentlyContinue
+    function global:? {
+        param([Parameter(ValueFromRemainingArguments)][string[]]$Prompt)
+        Invoke-BashCorrectQuery @Prompt
+    }
+}
+
+# Always provide bc? as a stable fallback alias.
+Set-Alias -Name 'bc?' -Value Invoke-BashCorrectQuery -Scope Global -Force
 
 # ---------------------------------------------------------------------------
 # Alt+Enter keybinding via PSReadLine: replace current buffer with suggestion

@@ -32,7 +32,7 @@ function _bashcorrect_postexec --on-event fish_postexec
         return
     end
 
-    set -l suggestion ($__bashcorrect_bin correct --cmd $last_cmd --exit-code $last_exit 2>/dev/tty)
+    set -l suggestion ($__bashcorrect_bin correct --cmd $last_cmd --exit-code $last_exit --shell fish 2>/dev/tty)
     if test -n "$suggestion"
         eval $suggestion
     end

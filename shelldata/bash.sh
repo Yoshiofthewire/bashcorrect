@@ -32,7 +32,7 @@ _bashcorrect_precmd() {
         return
     fi
     local _bc_suggestion
-    _bc_suggestion=$("$_BASHCORRECT_BIN" correct --cmd "$_bc_last_cmd" --exit-code "$_bc_exit" 2>/dev/tty)
+    _bc_suggestion=$("$_BASHCORRECT_BIN" correct --cmd "$_bc_last_cmd" --exit-code "$_bc_exit" --shell bash 2>/dev/tty)
     if [[ -n "$_bc_suggestion" ]]; then
         eval "$_bc_suggestion"
     fi

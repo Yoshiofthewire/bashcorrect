@@ -18,7 +18,9 @@ var initCmd = &cobra.Command{
 	Long: `Appends the BashCorrect sourcing line to your shell's rc file and writes
 the integration script to ~/.config/bashcorrect/shell/.
 
-Supported shells: bash, zsh, fish, powershell`,
+Supported shells: bash, zsh, fish, powershell.
+
+By default (no --shell), init configures all supported shells independently.`,
 	RunE: runInit,
 }
 
@@ -36,7 +38,7 @@ var initBootstrapCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringVar(&initShellFlag, "shell", "", "shell to configure: bash, zsh, fish, powershell (auto-detected if omitted)")
+	initCmd.Flags().StringVar(&initShellFlag, "shell", "", "shell to configure: bash, zsh, fish, powershell (if omitted, configures all supported shells)")
 	initBootstrapCmd.Flags().StringVar(&initBootstrapPathFlag, "path", "", "vault path (default: $XDG_CONFIG_HOME/bashcorrect/vault)")
 	initBootstrapCmd.Flags().BoolVar(&initBootstrapForce, "force", false, "overwrite top-level template files")
 	initCmd.AddCommand(initBootstrapCmd)
@@ -93,17 +95,9 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("ensuring config exists: %w", err)
 	}
 
-	shell := initShellFlag
-	if shell == "" {
-		shell = detectShell()
-	}
-	if shell == "" {
-		return fmt.Errorf("could not detect shell — pass --shell bash|zsh|fish|powershell")
-	}
-
-	def, ok := shells[shell]
-	if !ok {
-		return fmt.Errorf("unsupported shell %q — valid choices: bash, zsh, fish, powershell", shell)
+	targets, err := initTargetShells(initShellFlag)
+	if err != nil {
+		return err
 	}
 
 	// Write integration script to config dir
@@ -116,16 +110,42 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("creating shell dir: %w", err)
 	}
 
-	scriptData, err := shelldata.FS.ReadFile(def.scriptSrc)
-	if err != nil {
-		return fmt.Errorf("reading embedded script: %w", err)
-	}
-
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolving executable path: %w", err)
 	}
 	exePath = filepath.Clean(exePath)
+
+	for _, shell := range targets {
+		if err := installShellIntegration(shell, shellDir, exePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func initTargetShells(shellFlag string) ([]string, error) {
+	if shellFlag != "" {
+		if _, ok := shells[shellFlag]; !ok {
+			return nil, fmt.Errorf("unsupported shell %q — valid choices: bash, zsh, fish, powershell", shellFlag)
+		}
+		return []string{shellFlag}, nil
+	}
+
+	// No --shell means configure all supported shells independently.
+	return []string{"bash", "zsh", "fish", "powershell"}, nil
+}
+
+func installShellIntegration(shell, shellDir, exePath string) error {
+	def, ok := shells[shell]
+	if !ok {
+		return fmt.Errorf("unsupported shell %q — valid choices: bash, zsh, fish, powershell", shell)
+	}
+
+	scriptData, err := shelldata.FS.ReadFile(def.scriptSrc)
+	if err != nil {
+		return fmt.Errorf("reading embedded script: %w", err)
+	}
 
 	// Inject the current binary path so shell hooks keep working even when PATH
 	// does not include GOPATH/bin.
@@ -144,10 +164,10 @@ func runInit(_ *cobra.Command, _ []string) error {
 
 	sourceLine := def.sourceLine(scriptDest)
 
-	// Check if already installed
+	// Check if already installed in this specific rc/profile.
 	existing, _ := os.ReadFile(rcPath)
 	if strings.Contains(string(existing), scriptDest) {
-		fmt.Printf("BashCorrect is already configured in %s\n", rcPath)
+		fmt.Printf("BashCorrect is already configured for %s in %s\n", shell, rcPath)
 		return nil
 	}
 
