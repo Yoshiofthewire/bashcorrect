@@ -273,4 +273,4 @@ make dist     # cross-compile for all platforms → dist/
 
 ## License
 
-MIT
+GPL 2
