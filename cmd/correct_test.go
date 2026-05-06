@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,17 @@ import (
 	"strings"
 	"testing"
 )
+
+type fakeCommandNotFoundProvider struct {
+	resp string
+	err  error
+}
+
+func (f fakeCommandNotFoundProvider) Name() string { return "fake" }
+
+func (f fakeCommandNotFoundProvider) Query(_ context.Context, _ string, _ string) (string, error) {
+	return f.resp, f.err
+}
 
 func TestBuildCorrectPromptIncludesOSAndShell(t *testing.T) {
 	prompt := buildCorrectPrompt("ls /nope", 2, "no such file", "zsh")
@@ -90,6 +102,100 @@ func TestDetectPackageSearchCommandForWindowsUsesWinget(t *testing.T) {
 	got := detectPackageSearchCommandFor("ripgrep", "windows", look)
 	if got != `winget search "ripgrep"` {
 		t.Fatalf("expected winget search command, got %q", got)
+	}
+}
+
+func TestDetectPackageInstallCommandForLinuxPrefersAptGet(t *testing.T) {
+	look := func(name string) (string, error) {
+		if name == "apt-get" {
+			return "/usr/bin/apt-get", nil
+		}
+		return "", fmt.Errorf("not found")
+	}
+
+	got := detectPackageInstallCommandFor("jq", "linux", look)
+	if got != `sudo apt-get install -y "jq"` {
+		t.Fatalf("expected apt-get install command, got %q", got)
+	}
+}
+
+func TestDetectPackageInstallCommandForWindowsUsesWinget(t *testing.T) {
+	look := func(name string) (string, error) {
+		if name == "winget" {
+			return "C:/Windows/System32/winget.exe", nil
+		}
+		return "", fmt.Errorf("not found")
+	}
+
+	got := detectPackageInstallCommandFor("ripgrep", "windows", look)
+	if got != `winget install "ripgrep"` {
+		t.Fatalf("expected winget install command, got %q", got)
+	}
+}
+
+func TestParseCommandNotFoundDecisionTypo(t *testing.T) {
+	raw := `{"decision":"typo","corrected_command":"git status"}`
+	got, err := parseCommandNotFoundDecision(raw)
+	if err != nil {
+		t.Fatalf("parse decision: %v", err)
+	}
+	if got.Decision != "typo" {
+		t.Fatalf("expected typo decision, got %q", got.Decision)
+	}
+	if got.CorrectedCommand != "git status" {
+		t.Fatalf("expected corrected command, got %q", got.CorrectedCommand)
+	}
+}
+
+func TestParseCommandNotFoundDecisionRejectsInvalidDecision(t *testing.T) {
+	raw := `{"decision":"maybe","corrected_command":"git status"}`
+	if _, err := parseCommandNotFoundDecision(raw); err == nil {
+		t.Fatal("expected invalid decision error")
+	}
+}
+
+func TestBuildCommandNotFoundSuggestionTypoUsesClassifierResult(t *testing.T) {
+	p := fakeCommandNotFoundProvider{resp: `{"decision":"typo","corrected_command":"git status"}`}
+
+	suggestion, handled, err := buildCommandNotFoundSuggestion(context.Background(), p, "gti status", 127, "command not found", "bash")
+	if err != nil {
+		t.Fatalf("buildCommandNotFoundSuggestion: %v", err)
+	}
+	if !handled {
+		t.Fatal("expected handled=true for typo decision")
+	}
+	if suggestion != "git status" {
+		t.Fatalf("unexpected suggestion: %q", suggestion)
+	}
+}
+
+func TestBuildCommandNotFoundSuggestionUnknownFallsThrough(t *testing.T) {
+	p := fakeCommandNotFoundProvider{resp: `{"decision":"unknown"}`}
+
+	suggestion, handled, err := buildCommandNotFoundSuggestion(context.Background(), p, "nosuchcmd --help", 127, "command not found", "bash")
+	if err != nil {
+		t.Fatalf("buildCommandNotFoundSuggestion: %v", err)
+	}
+	if handled {
+		t.Fatalf("expected handled=false for unknown decision, got suggestion %q", suggestion)
+	}
+	if suggestion != "" {
+		t.Fatalf("expected empty suggestion, got %q", suggestion)
+	}
+}
+
+func TestBuildCommandNotFoundSuggestionInvalidJSONFallsThrough(t *testing.T) {
+	p := fakeCommandNotFoundProvider{resp: `not json`}
+
+	suggestion, handled, err := buildCommandNotFoundSuggestion(context.Background(), p, "nosuchcmd --help", 127, "command not found", "bash")
+	if err != nil {
+		t.Fatalf("buildCommandNotFoundSuggestion: %v", err)
+	}
+	if handled {
+		t.Fatalf("expected handled=false for invalid classifier response, got suggestion %q", suggestion)
+	}
+	if suggestion != "" {
+		t.Fatalf("expected empty suggestion, got %q", suggestion)
 	}
 }
 

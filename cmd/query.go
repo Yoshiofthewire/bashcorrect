@@ -107,11 +107,13 @@ func runQuery(_ *cobra.Command, args []string) error {
 
 	sysPrompt, userPrompt := buildQueryPrompts(prompt, queryCWD, queryHistoryLines, queryInline, queryFiles)
 
+	stopThinking := func() {}
 	if !queryInline {
-		fmt.Fprintf(os.Stderr, "\033[2m[bashcorrect] asking %s...\033[0m\n", p.Name())
+		stopThinking = startThinkingThrobber("Thinking")
 	}
 
 	response, err := p.Query(context.Background(), sysPrompt, userPrompt)
+	stopThinking()
 	if err != nil {
 		return fmt.Errorf("provider error: %w", err)
 	}

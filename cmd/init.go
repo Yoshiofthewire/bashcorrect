@@ -132,8 +132,28 @@ func initTargetShells(shellFlag string) ([]string, error) {
 		return []string{shellFlag}, nil
 	}
 
-	// No --shell means configure all supported shells independently.
+	if detected := detectShellNameForInit(os.Getenv("SHELL"), runtime.GOOS); detected != "" {
+		return []string{detected}, nil
+	}
+
+	// If shell detection fails, configure all supported shells independently.
 	return []string{"bash", "zsh", "fish", "powershell"}, nil
+}
+
+func detectShellNameForInit(shellEnv, goos string) string {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(shellEnv)))
+	switch {
+	case strings.HasSuffix(base, "bash"):
+		return "bash"
+	case strings.HasSuffix(base, "zsh"):
+		return "zsh"
+	case strings.HasSuffix(base, "fish"):
+		return "fish"
+	}
+	if goos == "windows" {
+		return "powershell"
+	}
+	return ""
 }
 
 func installShellIntegration(shell, shellDir, exePath string) error {
@@ -199,23 +219,6 @@ func installShellIntegration(shell, shellDir, exePath string) error {
 		fmt.Printf("  . '%s'\n", rcPath)
 	}
 	return nil
-}
-
-func detectShell() string {
-	shellEnv := os.Getenv("SHELL")
-	switch {
-	case strings.HasSuffix(shellEnv, "bash"):
-		return "bash"
-	case strings.HasSuffix(shellEnv, "zsh"):
-		return "zsh"
-	case strings.HasSuffix(shellEnv, "fish"):
-		return "fish"
-	}
-	// Check if running under pwsh on Windows
-	if runtime.GOOS == "windows" {
-		return "powershell"
-	}
-	return ""
 }
 
 func rcFileBash() string {
